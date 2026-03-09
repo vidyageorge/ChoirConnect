@@ -65,10 +65,23 @@ async function seedDefaultAdmin() {
   }
 }
 
-(async () => {
-  await initializeDatabase();
-  await seedDefaultAdmin();
-})();
+async function startServer() {
+  try {
+    await initializeDatabase();
+    await seedDefaultAdmin();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('Server startup failed:', err.message);
+    if (process.env.DATABASE_URL) {
+      console.error('Check DATABASE_URL. Ensure the connection string is correct and the database is reachable.');
+    }
+    process.exit(1);
+  }
+}
+
+startServer();
 
 app.use('/api', loadAuthUser);
 
@@ -827,7 +840,4 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Server is started in startServer() after DB init
