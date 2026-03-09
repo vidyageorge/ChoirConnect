@@ -137,7 +137,7 @@ Host the app on a server on the internet. It will run 24/7 and you can open it f
 4. Set start command: e.g. `npm start` and configure the server to serve the built frontend (many hosts let you set a “static” folder to `client/dist` and run the Node server for API).
 5. The host will give you a URL; use that instead of localhost.
 
-The database (`choir.db`) is a single file. On most cloud hosts, the filesystem is temporary, so you either need to use a **persistent disk** (if the host supports it) or back up/restore `choir.db` regularly. Some hosts offer a small persistent volume; otherwise you can copy `choir.db` off the server periodically.
+The app uses **SQLite** by default (file `choir.db` in the project root). On most cloud hosts the filesystem is temporary, so that file is recreated empty on each deploy. To get **persistent data** on the free tier, set **`DATABASE_URL`** to a PostgreSQL connection string (e.g. Render's free PostgreSQL). The app then uses PostgreSQL instead of SQLite and data persists. See **DEPLOYMENT.md** for Render + PostgreSQL setup.
 
 ### Option B: Keep it running on your own PC (or a home server)
 

@@ -44,7 +44,14 @@ This guide explains how to deploy ChoirMate to various hosting platforms.
    - Wait 3-5 minutes for deployment
    - Your app will be live at: `https://choirmate.onrender.com` (or your chosen name)
 
-**Important Note**: Render free tier databases reset periodically. For persistent data, upgrade to paid tier ($7/month).
+**Persistent data on free tier (PostgreSQL):**  
+Without a database, the app uses an empty SQLite file that is recreated on each deploy, so data is lost. To keep data on the free tier, use Render's free PostgreSQL:
+
+1. In the Render dashboard, click **"New +"** → **"PostgreSQL"**. Create a free database in the same region as your web service. Note the **Internal Database URL** (or **External** if your app is in another project).
+2. In your **Web Service** (ChoirConnect) → **Environment**, add a variable: **Key** `DATABASE_URL`, **Value** = the PostgreSQL connection string (e.g. `postgresql://user:pass@host/dbname?sslmode=require`). Use the URL from the Postgres service's "Connect" or "Info" tab.
+3. Save and redeploy. The app will use PostgreSQL instead of SQLite, and data will persist across deploys. The default admin user (username `admin`, password `admin`) is created on first run; add members and data via the app.
+
+**Important Note**: If you do not set `DATABASE_URL`, the app uses SQLite and data does not persist on the free tier (no disks). For persistent data without paying, use the free PostgreSQL above.
 
 ---
 
@@ -156,30 +163,28 @@ This guide explains how to deploy ChoirMate to various hosting platforms.
 For production, you may want to set:
 - `NODE_ENV=production` (automatically set by most platforms)
 - `PORT` (automatically provided by hosting platforms)
-- `DATABASE_PATH` (optional) – full path to the SQLite file, e.g. for a persistent disk: `/data/choir.db`
+- `DATABASE_URL` (optional) – when set, the app uses **PostgreSQL** (e.g. Render's free Postgres). Example: `postgresql://user:pass@host/db?sslmode=require`. If not set, the app uses SQLite (file `choir.db`; not persistent on Render free tier).
+- `DATABASE_PATH` (optional, SQLite only) – full path to the SQLite file when not using `DATABASE_URL`, e.g. for a persistent disk: `/data/choir.db`
 
 ### Dashboard shows zeros / "No attendance data" (production)
 
-On Render (and similar hosts), the app starts with an **empty database** because:
-- The file `choir.db` is not in Git (it is in `.gitignore`).
+On Render (and similar hosts), the app can start with an **empty database** because:
+- Without `DATABASE_URL`, the app uses SQLite and the file `choir.db` is not in Git (it is in `.gitignore`).
 - Each deploy uses a fresh filesystem, so no existing database file is present.
 - The server creates a new `choir.db`, runs migrations, and seeds only the default admin user (username `admin`, password `admin`). Members, attendance, and expenses are empty.
 
 To get your real data on the hosted app:
 
-1. **Use a persistent disk (Render)**  
-   - In the Render dashboard: your Web Service → **Environment** → add a **Disk** (mount path e.g. `/data`).  
-   - Add an environment variable: `DATABASE_PATH=/data/choir.db`.  
-   - Redeploy so the app uses the database on the disk.
+1. **Use PostgreSQL on Render (recommended, free tier)**  
+   - Create a **PostgreSQL** database in Render (New + → PostgreSQL, free plan).  
+   - In your Web Service → **Environment**, add `DATABASE_URL` = the Postgres connection string from the database's "Connect" or "Info" tab.  
+   - Save and redeploy. The app will use PostgreSQL; data persists across deploys. Add members and data via the app or migrate from local later.
 
-2. **Restore your local database once**  
-   - From your machine, copy your local `choir.db` onto the disk. Options:  
-     - **Render Shell** (if available): open a shell for the service, then upload `choir.db` into `/data/` (e.g. via a file upload or paste from a backup).  
-     - Or run a one-time script locally that uses Render’s API or a temporary admin endpoint to send the file (only if you secure it and remove it afterward).  
-   - After the file is at `/data/choir.db`, restart the service. The app will use the existing database and your dashboard will show members, attendance, and expenses.
+2. **Use a persistent disk (Render paid tier only)**  
+   - Disks are not available on the free instance type. If you upgrade: add a Disk, set `DATABASE_PATH=/data/choir.db`, copy your local `choir.db` to the disk, then restart.
 
-3. **If you cannot add a disk**  
-   - On the free tier without a disk, the filesystem is ephemeral: any data you add (e.g. via the UI or a seed script) will be lost on the next deploy or restart. For persistent data you need a persistent disk or a hosted database (e.g. PostgreSQL).
+3. **If you do nothing**  
+   - Without `DATABASE_URL` or a disk, any data you add in the UI is lost on the next deploy or restart. Use the free PostgreSQL option above for persistent data.
 
 ### Database Persistence
 
@@ -230,8 +235,8 @@ npm install && cd client && npm install && npm run build
 ```
 
 ### Database resets after restart / Dashboard always empty
-- Use a **persistent disk** and set `DATABASE_PATH` to a path on that disk (e.g. `/data/choir.db`). Restore your local `choir.db` to that path once. See "Dashboard shows zeros" above.
-- Or use a dedicated database service (e.g. PostgreSQL)
+- **Recommended:** Add a **PostgreSQL** database (e.g. Render's free Postgres) and set **`DATABASE_URL`** in your Web Service environment. Redeploy. Data then persists. See "Dashboard shows zeros" above.
+- Or use a persistent disk (Render paid tier only) and `DATABASE_PATH` to point to a SQLite file on the disk.
 
 ### API calls fail
 - Check that `client/src/api.ts` uses relative URLs in production
