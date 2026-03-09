@@ -103,9 +103,11 @@ function Attendance() {
     }
   };
 
+  type WeekendDateItem = { date: Date; type: 'saturday' | 'sunday' | 'special'; eventName?: string; month?: number };
+
   // Get all Saturdays and Sundays for a given month (special events include stored event_name for display)
-  const getWeekendDatesForMonth = (year: number, month: number) => {
-    const dates: Array<{ date: Date; type: 'saturday' | 'sunday' | 'special'; eventName?: string }> = [];
+  const getWeekendDatesForMonth = (year: number, month: number): WeekendDateItem[] => {
+    const dates: WeekendDateItem[] = [];
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
     for (let day = 1; day <= daysInMonth; day++) {
@@ -144,10 +146,8 @@ function Attendance() {
     return dates;
   };
 
-  type WeekendDateItem = { date: Date; type: 'saturday' | 'sunday' | 'special'; eventName?: string; month?: number };
-
   // Get all Saturdays and Sundays for the entire year
-  const getWeekendDatesForYear = (year: number) => {
+  const getWeekendDatesForYear = (year: number): WeekendDateItem[] => {
     const dates: WeekendDateItem[] = [];
     
     for (let month = 0; month < 12; month++) {
@@ -158,10 +158,10 @@ function Attendance() {
     return dates;
   };
 
-  const weekendDatesRaw: WeekendDateItem[] = viewMode === 'month' 
+  const weekendDatesRaw: WeekendDateItem[] = viewMode === 'month'
     ? getWeekendDatesForMonth(currentYear, currentMonth)
     : getWeekendDatesForYear(currentYear);
-  const weekendDates = weekendDatesRaw.filter((d) => {
+  const weekendDates: WeekendDateItem[] = weekendDatesRaw.filter((d) => {
     if (eventTypeFilter === 'sunday-only') return d.type === 'sunday';
     if (eventTypeFilter === 'saturday-sunday') return d.type === 'saturday' || d.type === 'sunday';
     return true;
