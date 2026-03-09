@@ -2,7 +2,10 @@ const path = require('path');
 const fs = require('fs');
 const { promisify } = require('util');
 
-const usePg = Boolean(process.env.DATABASE_URL);
+/** Strip surrounding quotes if Render/env stores DATABASE_URL with them. */
+const rawUrl = process.env.DATABASE_URL;
+const databaseUrl = rawUrl ? String(rawUrl).replace(/^["']|["']$/g, '').trim() : '';
+const usePg = Boolean(databaseUrl);
 
 /** Convert SQLite-style ? placeholders to PostgreSQL $1, $2, ... */
 function toPgPlaceholders(sql) {
@@ -18,7 +21,10 @@ let initializeDatabase;
 
 if (usePg) {
   const { Pool } = require('pg');
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL?.includes('render.com') ? { rejectUnauthorized: false } : undefined });
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: databaseUrl.includes('render.com') ? { rejectUnauthorized: false } : undefined
+  });
 
   dbRun = (sql, params = []) => {
     const pgSql = sql.trim().toUpperCase().startsWith('INSERT') && !sql.includes('RETURNING')
