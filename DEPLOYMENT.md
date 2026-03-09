@@ -156,6 +156,30 @@ This guide explains how to deploy ChoirMate to various hosting platforms.
 For production, you may want to set:
 - `NODE_ENV=production` (automatically set by most platforms)
 - `PORT` (automatically provided by hosting platforms)
+- `DATABASE_PATH` (optional) – full path to the SQLite file, e.g. for a persistent disk: `/data/choir.db`
+
+### Dashboard shows zeros / "No attendance data" (production)
+
+On Render (and similar hosts), the app starts with an **empty database** because:
+- The file `choir.db` is not in Git (it is in `.gitignore`).
+- Each deploy uses a fresh filesystem, so no existing database file is present.
+- The server creates a new `choir.db`, runs migrations, and seeds only the default admin user (username `admin`, password `admin`). Members, attendance, and expenses are empty.
+
+To get your real data on the hosted app:
+
+1. **Use a persistent disk (Render)**  
+   - In the Render dashboard: your Web Service → **Environment** → add a **Disk** (mount path e.g. `/data`).  
+   - Add an environment variable: `DATABASE_PATH=/data/choir.db`.  
+   - Redeploy so the app uses the database on the disk.
+
+2. **Restore your local database once**  
+   - From your machine, copy your local `choir.db` onto the disk. Options:  
+     - **Render Shell** (if available): open a shell for the service, then upload `choir.db` into `/data/` (e.g. via a file upload or paste from a backup).  
+     - Or run a one-time script locally that uses Render’s API or a temporary admin endpoint to send the file (only if you secure it and remove it afterward).  
+   - After the file is at `/data/choir.db`, restart the service. The app will use the existing database and your dashboard will show members, attendance, and expenses.
+
+3. **If you cannot add a disk**  
+   - On the free tier without a disk, the filesystem is ephemeral: any data you add (e.g. via the UI or a seed script) will be lost on the next deploy or restart. For persistent data you need a persistent disk or a hosted database (e.g. PostgreSQL).
 
 ### Database Persistence
 
@@ -205,9 +229,9 @@ scp user@your-server:/path/to/choir.db ./backup-choir.db
 npm install && cd client && npm install && npm run build
 ```
 
-### Database resets after restart
-- Upgrade to paid tier for persistent storage
-- Or use a dedicated database service
+### Database resets after restart / Dashboard always empty
+- Use a **persistent disk** and set `DATABASE_PATH` to a path on that disk (e.g. `/data/choir.db`). Restore your local `choir.db` to that path once. See "Dashboard shows zeros" above.
+- Or use a dedicated database service (e.g. PostgreSQL)
 
 ### API calls fail
 - Check that `client/src/api.ts` uses relative URLs in production
