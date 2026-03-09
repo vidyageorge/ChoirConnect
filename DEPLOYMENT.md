@@ -49,7 +49,10 @@ Without a database, the app uses an empty SQLite file that is recreated on each 
 
 1. In the Render dashboard, click **"New +"** → **"PostgreSQL"**. Create a free database in the same region as your web service. Note the **Internal Database URL** (or **External** if your app is in another project).
 2. In your **Web Service** (ChoirConnect) → **Environment**, add a variable: **Key** `DATABASE_URL`, **Value** = the PostgreSQL connection string (e.g. `postgresql://user:pass@host/dbname?sslmode=require`). Use the URL from the Postgres service's "Connect" or "Info" tab.
-3. Save and redeploy. The app will use PostgreSQL instead of SQLite, and data will persist across deploys. The default admin user (username `admin`, password `admin`) is created on first run; add members and data via the app.
+3. Save and redeploy. The app will use PostgreSQL instead of SQLite, and data will persist across deploys. The default admin user (username `admin`, password `admin`) is created on first run.
+4. **To copy your local data into Postgres:** After the first deploy (so Postgres tables exist), run the migration script once from your machine (where `choir.db` has your data). Set `DATABASE_URL` to the **External** Postgres URL (so your PC can reach it), then run:  
+   `node scripts/migrate-sqlite-to-postgres.js`  
+   This reads local `choir.db`, truncates the Postgres tables, and inserts all users, members, attendance, expenses, and correction requests. Then reload the app in the browser to see the data.
 
 **Important Note**: If you do not set `DATABASE_URL`, the app uses SQLite and data does not persist on the free tier (no disks). For persistent data without paying, use the free PostgreSQL above.
 

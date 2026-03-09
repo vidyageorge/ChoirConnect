@@ -139,6 +139,10 @@ Host the app on a server on the internet. It will run 24/7 and you can open it f
 
 The app uses **SQLite** by default (file `choir.db` in the project root). On most cloud hosts the filesystem is temporary, so that file is recreated empty on each deploy. To get **persistent data** on the free tier, set **`DATABASE_URL`** to a PostgreSQL connection string (e.g. Render's free PostgreSQL). The app then uses PostgreSQL instead of SQLite and data persists. See **DEPLOYMENT.md** for Render + PostgreSQL setup.
 
+**Migrate local data into Postgres:** After deploying with `DATABASE_URL` set (so Postgres tables exist), run once from your PC (with your local `choir.db` and the Postgres URL):  
+`set DATABASE_URL=postgresql://user:pass@host/db?sslmode=require` then `node scripts/migrate-sqlite-to-postgres.js`  
+(On Mac/Linux use `export DATABASE_URL="postgresql://..."`.) Use the **External** database URL from Render so your machine can connect. The script copies all users, members, attendance, expenses, and correction requests into Postgres.
+
 ### Option B: Keep it running on your own PC (or a home server)
 
 If you have a computer that stays on all the time (e.g. a desktop or a small home server), you can run ChoirConnect there so it keeps running until that machine is shut down.
