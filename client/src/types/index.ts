@@ -76,6 +76,12 @@ export interface AuthUser {
   memberId?: number;
 }
 
+/** Current user shape for legacy/context (role + memberId). */
+export interface CurrentUser {
+  role: 'admin' | 'member';
+  memberId?: number;
+}
+
 export interface DashboardData {
   totalMembers: number;
   upcomingBirthdays: number;
