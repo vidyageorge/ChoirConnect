@@ -99,6 +99,44 @@ export const attendanceAPI = {
   },
 };
 
+// Attendance correction requests API
+export const attendanceCorrectionsAPI = {
+  getAll: async () => {
+    const response = await fetch(`${API_URL}/attendance-corrections`, FETCH_OPTIONS);
+    return response.json();
+  },
+  getById: async (id: number) => {
+    const response = await fetch(`${API_URL}/attendance-corrections/${id}`, FETCH_OPTIONS);
+    return response.json();
+  },
+  create: async (body: {
+    member_id: number;
+    date: string;
+    event_type: string;
+    event_name?: string;
+    current_status: string;
+    requested_status: string;
+    reason: string;
+  }) => {
+    const response = await fetch(`${API_URL}/attendance-corrections`, {
+      ...FETCH_OPTIONS,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return response.json();
+  },
+  approveOrReject: async (id: number, request_status: 'approved' | 'rejected') => {
+    const response = await fetch(`${API_URL}/attendance-corrections/${id}`, {
+      ...FETCH_OPTIONS,
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request_status }),
+    });
+    return response.json();
+  },
+};
+
 // Expenses API
 export const expensesAPI = {
   getAll: async (params?: { startDate?: string; endDate?: string }) => {
@@ -157,6 +195,15 @@ export const authAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: username.trim(), password }),
+    });
+    return response.json();
+  },
+  resetPassword: async (username: string, newPassword: string) => {
+    const response = await fetch(`${API_URL}/auth/reset-password`, {
+      ...FETCH_OPTIONS,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username.trim(), newPassword }),
     });
     return response.json();
   },

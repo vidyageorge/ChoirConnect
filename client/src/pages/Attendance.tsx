@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { membersAPI, attendanceAPI } from '../api';
 import { Member, Attendance as AttendanceType, AttendanceStatus } from '../types';
 
@@ -15,6 +16,8 @@ const STATUS_CONFIG = {
 };
 
 function Attendance() {
+  const { user } = useAuth();
+  const isMemberView = user?.role === 'member' && user?.memberId != null;
   const [members, setMembers] = useState<Member[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,9 +103,9 @@ function Attendance() {
     }
   };
 
-  // Get all Saturdays and Sundays for a given month
+  // Get all Saturdays and Sundays for a given month (special events include stored event_name for display)
   const getWeekendDatesForMonth = (year: number, month: number) => {
-    const dates: Array<{ date: Date; type: 'saturday' | 'sunday' | 'special' }> = [];
+    const dates: Array<{ date: Date; type: 'saturday' | 'sunday' | 'special'; eventName?: string }> = [];
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
     for (let day = 1; day <= daysInMonth; day++) {
@@ -131,7 +134,7 @@ function Attendance() {
       const dateKey = record.date;
       if (!uniqueSpecialDates.has(dateKey)) {
         uniqueSpecialDates.add(dateKey);
-        dates.push({ date: recordDate, type: 'special' });
+        dates.push({ date: recordDate, type: 'special', eventName: record.event_name || 'Special Event' });
       }
     });
     
@@ -312,7 +315,11 @@ function Attendance() {
         <div className="card">
           <div className="empty-state">
             <div className="empty-state-icon">👥</div>
-            <p>No members found. Please add members first to track attendance.</p>
+            <p>
+              {isMemberView
+                ? 'Claim your profile from the Members page to see your attendance here.'
+                : 'No members found. Please add members first to track attendance.'}
+            </p>
           </div>
         </div>
       </div>
@@ -323,7 +330,7 @@ function Attendance() {
     <div>
       <div className="page-header">
         <h2>Attendance Tracking</h2>
-        <p>Click on cells to mark attendance status for each member</p>
+        <p>{isMemberView ? 'Your attendance (view only)' : 'Click on cells to mark attendance status for each member'}</p>
       </div>
 
       <div className="card" style={{ marginBottom: '1rem' }}>
@@ -342,6 +349,7 @@ function Attendance() {
               >
                 Year View
               </button>
+              {!isMemberView && (
               <button 
                 className="btn btn-success btn-small"
                 onClick={() => setShowAddEventModal(true)}
@@ -349,6 +357,7 @@ function Attendance() {
               >
                 + Add Special Event
               </button>
+              )}
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem', fontSize: '0.875rem' }}>
                 <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Show & count:</span>
                 <select
@@ -463,9 +472,9 @@ function Attendance() {
                       <div style={{ 
                         fontSize: '0.75rem', 
                         color: 'var(--text-secondary)',
-                        textTransform: 'uppercase'
+                        textTransform: d.type === 'special' ? 'none' : 'uppercase'
                       }}>
-                        {d.type === 'saturday' ? 'Sat' : d.type === 'sunday' ? 'Sun' : 'Special'}
+                        {d.type === 'saturday' ? 'Sat' : d.type === 'sunday' ? 'Sun' : (d.eventName || 'Special')}
                       </div>
                     </th>
                   ))
@@ -583,6 +592,29 @@ function Attendance() {
                           background: isToday ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
                           position: 'relative'
                         }}>
+                          {isMemberView ? (
+                            <div
+                              style={{
+                                width: '40px',
+                                height: '40px',
+                                border: `2px solid ${config ? config.color : 'var(--border)'}`,
+                                borderRadius: '6px',
+                                background: config ? config.bgColor : 'white',
+                                color: config ? config.color : 'var(--text-secondary)',
+                                cursor: 'default',
+                                fontSize: '1.125rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto',
+                                fontWeight: 600
+                              }}
+                              title={`${member.name} - ${formatDate(d.date)} (${d.type === 'saturday' ? 'Saturday' : d.type === 'sunday' ? 'Sunday' : (d.eventName || 'Special')})`}
+                            >
+                              {config?.icon || ''}
+                            </div>
+                          ) : (
+                            <>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -608,7 +640,7 @@ function Attendance() {
                               margin: '0 auto',
                               fontWeight: 600
                             }}
-                            title={`${member.name} - ${formatDate(d.date)} (${d.type === 'saturday' ? 'Saturday' : 'Sunday'})`}
+                            title={`${member.name} - ${formatDate(d.date)} (${d.type === 'saturday' ? 'Saturday' : d.type === 'sunday' ? 'Sunday' : (d.eventName || 'Special')})`}
                           >
                             {config?.icon || ''}
                           </button>
@@ -669,6 +701,8 @@ function Attendance() {
                                 </button>
                               ))}
                             </div>
+                          )}
+                            </>
                           )}
                         </td>
                       );

@@ -25,6 +25,24 @@ export interface Attendance {
   created_at: string;
 }
 
+export type CorrectionRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface AttendanceCorrectionRequest {
+  id: number;
+  member_id: number;
+  member_name: string;
+  date: string;
+  event_type: string;
+  event_name: string | null;
+  current_status: string;
+  requested_status: string;
+  reason: string;
+  request_status: CorrectionRequestStatus;
+  created_at: string;
+  decided_by: number | null;
+  decided_at: string | null;
+}
+
 export interface Expense {
   id: number;
   description: string;

@@ -85,6 +85,26 @@ async function initializeDatabase() {
       )
     `);
 
+    // Attendance correction requests (member requests change when attendance entered wrongly)
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS attendance_correction_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        member_id INTEGER NOT NULL,
+        date DATE NOT NULL,
+        event_type TEXT NOT NULL,
+        event_name TEXT,
+        current_status TEXT NOT NULL,
+        requested_status TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        request_status TEXT NOT NULL DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        decided_by INTEGER,
+        decided_at DATETIME,
+        FOREIGN KEY (member_id) REFERENCES members(id),
+        FOREIGN KEY (decided_by) REFERENCES users(id)
+      )
+    `);
+
     // Users table (app login roles: admin | member)
     await dbRun(`
       CREATE TABLE IF NOT EXISTS users (
@@ -110,6 +130,8 @@ const userQueries = {
   getById: (id) => dbGet('SELECT id, username, role FROM users WHERE id = ?', [id]),
   create: (username, passwordHash, role) =>
     dbRun('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)', [username, passwordHash, role]),
+  updatePassword: (username, passwordHash) =>
+    dbRun('UPDATE users SET password_hash = ? WHERE username = ?', [passwordHash, username]),
 };
 
 /** Add user_id to members if missing (links app user to choir member for self-edit). */
@@ -173,6 +195,7 @@ const attendanceQueries = {
     'SELECT * FROM attendance WHERE member_id = ? AND date = ? AND event_type = ? LIMIT 1',
     [memberId, date, eventType]
   ),
+  getById: (id) => dbGet('SELECT * FROM attendance WHERE id = ?', [id]),
   create: (member_id, event_type, event_name, date, status, notes) => 
     dbRun('INSERT INTO attendance (member_id, event_type, event_name, date, status, notes) VALUES (?, ?, ?, ?, ?, ?)', 
       [member_id, event_type, event_name, date, status, notes]),
@@ -226,6 +249,39 @@ const expenseQueries = {
   `)
 };
 
+/** Attendance correction requests (request to change wrongly entered attendance). */
+const correctionRequestQueries = {
+  getAll: () => dbAll(`
+    SELECT r.*, m.name as member_name
+    FROM attendance_correction_requests r
+    JOIN members m ON r.member_id = m.id
+    ORDER BY r.created_at DESC
+  `),
+  getByMember: (memberId) => dbAll(`
+    SELECT r.*, m.name as member_name
+    FROM attendance_correction_requests r
+    JOIN members m ON r.member_id = m.id
+    WHERE r.member_id = ?
+    ORDER BY r.created_at DESC
+  `, [memberId]),
+  getById: (id) => dbGet(`
+    SELECT r.*, m.name as member_name
+    FROM attendance_correction_requests r
+    JOIN members m ON r.member_id = m.id
+    WHERE r.id = ?
+  `, [id]),
+  create: (memberId, date, eventType, eventName, currentStatus, requestedStatus, reason) =>
+    dbRun(
+      'INSERT INTO attendance_correction_requests (member_id, date, event_type, event_name, current_status, requested_status, reason, request_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [memberId, date, eventType, eventName || null, currentStatus, requestedStatus, reason, 'pending']
+    ),
+  updateStatus: (id, requestStatus, decidedBy) =>
+    dbRun(
+      'UPDATE attendance_correction_requests SET request_status = ?, decided_by = ?, decided_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [requestStatus, decidedBy, id]
+    ),
+};
+
 module.exports = {
   db,
   initializeDatabase,
@@ -233,4 +289,5 @@ module.exports = {
   attendanceQueries,
   expenseQueries,
   userQueries,
+  correctionRequestQueries,
 };

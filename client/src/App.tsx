@@ -3,8 +3,10 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Dashboard from './pages/Dashboard';
 import Members from './pages/Members';
 import Attendance from './pages/Attendance';
+import AttendanceCorrections from './pages/AttendanceCorrections';
 import Expenses from './pages/Expenses';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 
 function Sidebar() {
   const location = useLocation();
@@ -13,7 +15,8 @@ function Sidebar() {
   const allNavItems = [
     { path: '/', label: 'Dashboard', icon: '📊', adminOnly: false },
     { path: '/members', label: 'Members', icon: '👥', adminOnly: false },
-    { path: '/attendance', label: 'Attendance', icon: '✓', adminOnly: true },
+    { path: '/attendance', label: 'Attendance', icon: '✓', adminOnly: false },
+    { path: '/attendance-corrections', label: 'Correction requests', icon: '✏️', adminOnly: false },
     { path: '/expenses', label: 'Expenses', icon: '💰', adminOnly: false },
   ];
   const navItems = user?.role === 'admin'
@@ -64,20 +67,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function MemberRouteGuard({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  if (user?.role === 'member') {
-    return <Navigate to="/" replace />;
-  }
-  return <>{children}</>;
-}
-
 function App() {
   return (
     <AuthProvider>
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route
             path="/*"
             element={
@@ -88,7 +84,8 @@ function App() {
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/members" element={<Members />} />
-                      <Route path="/attendance" element={<MemberRouteGuard><Attendance /></MemberRouteGuard>} />
+                      <Route path="/attendance" element={<Attendance />} />
+                      <Route path="/attendance-corrections" element={<AttendanceCorrections />} />
                       <Route path="/expenses" element={<Expenses />} />
                     </Routes>
                   </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api';
 
@@ -12,6 +12,7 @@ function Login() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showPasswords, setShowPasswords] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,9 +85,19 @@ function Login() {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <label className="form-label" style={{ marginBottom: 0 }}>Password</label>
+              <button
+                type="button"
+                className="btn-link"
+                style={{ fontSize: '0.8rem', padding: 0, cursor: 'pointer', border: 'none', background: 'none', color: 'var(--primary-color)' }}
+                onClick={() => setShowPasswords((p) => !p)}
+              >
+                {showPasswords ? 'Hide password' : 'Show password'}
+              </button>
+            </div>
             <input
-              type="password"
+              type={showPasswords ? 'text' : 'password'}
               className="form-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -94,12 +105,17 @@ function Login() {
               required
               minLength={isSignUp ? 4 : undefined}
             />
+            {!isSignUp && (
+              <p style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+                <Link to="/reset-password" className="btn-link">Forgot password?</Link>
+              </p>
+            )}
           </div>
           {isSignUp && (
             <div className="form-group">
               <label className="form-label">Confirm password</label>
               <input
-                type="password"
+                type={showPasswords ? 'text' : 'password'}
                 className="form-input"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

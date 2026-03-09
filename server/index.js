@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
-const { initializeDatabase, memberQueries, attendanceQueries, expenseQueries, userQueries } = require('./database');
+const { initializeDatabase, memberQueries, attendanceQueries, expenseQueries, userQueries, correctionRequestQueries } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -120,6 +120,28 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { username, newPassword } = req.body || {};
+    const trimmed = (username || '').trim();
+    if (!trimmed || !newPassword) {
+      return res.status(400).json({ error: 'Username and new password required.' });
+    }
+    if (newPassword.length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+    }
+    const user = await userQueries.getByUsername(trimmed);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    const hash = bcrypt.hashSync(newPassword, 10);
+    await userQueries.updatePassword(trimmed, hash);
+    res.json({ message: 'Password reset. Sign in with your new password.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/auth/logout', (req, res) => {
   req.session.destroy(() => {});
   res.json({ ok: true });
@@ -136,6 +158,15 @@ app.get('/api/auth/me', (req, res) => {
 
 app.get('/api/members', requireAuth, async (req, res) => {
   try {
+    if (req.authUser.role === 'member') {
+      if (req.authUser.memberId == null) {
+        res.json([]);
+        return;
+      }
+      const member = await memberQueries.getById(req.authUser.memberId);
+      res.json(member ? [member] : []);
+      return;
+    }
     const members = await memberQueries.getAll();
     res.json(members);
   } catch (error) {
@@ -262,12 +293,25 @@ app.get('/api/members/birthdays/upcoming', requireAuth, async (req, res) => {
 
 // ============= ATTENDANCE ROUTES =============
 
-// Get all attendance records
+// Get all attendance records (for member role: only their own records)
 app.get('/api/attendance', requireAuth, async (req, res) => {
   try {
     const { date, event_type } = req.query;
     let records;
-    
+
+    if (req.authUser.role === 'member') {
+      if (req.authUser.memberId == null) {
+        res.json([]);
+        return;
+      }
+      const all = await attendanceQueries.getAll();
+      records = all.filter(r => r.member_id === req.authUser.memberId);
+      if (date && event_type) records = records.filter(r => r.date === date && r.event_type === event_type);
+      else if (date) records = records.filter(r => r.date === date);
+      res.json(records);
+      return;
+    }
+
     if (date && event_type) {
       records = await attendanceQueries.getByDateAndType(date, event_type);
     } else if (date) {
@@ -275,7 +319,7 @@ app.get('/api/attendance', requireAuth, async (req, res) => {
     } else {
       records = await attendanceQueries.getAll();
     }
-    
+
     res.json(records);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -302,7 +346,7 @@ app.get('/api/attendance/stats', requireAuth, async (req, res) => {
   }
 });
 
-// Create attendance record
+// Create attendance record (admin only)
 app.post('/api/attendance', requireAuth, async (req, res) => {
   try {
     if (req.authUser.role !== 'admin') {
@@ -337,14 +381,14 @@ app.post('/api/attendance/bulk', requireAuth, async (req, res) => {
   }
 });
 
-// Update attendance record
+// Update attendance record (admin only)
 app.put('/api/attendance/:id', requireAuth, async (req, res) => {
   try {
     if (req.authUser.role !== 'admin') {
       return res.status(403).json({ error: 'Only admins can update attendance.' });
     }
     const { status, notes } = req.body;
-    await attendanceQueries.update(status, notes, req.params.id);
+    await attendanceQueries.update(status, notes || '', req.params.id);
     res.json({ message: 'Attendance updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -359,6 +403,81 @@ app.delete('/api/attendance/:id', requireAuth, async (req, res) => {
     }
     await attendanceQueries.delete(req.params.id);
     res.json({ message: 'Attendance record deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============= ATTENDANCE CORRECTION REQUEST ROUTES =============
+
+app.get('/api/attendance-corrections', requireAuth, async (req, res) => {
+  try {
+    if (req.authUser.role === 'member' && req.authUser.memberId != null) {
+      const list = await correctionRequestQueries.getByMember(req.authUser.memberId);
+      return res.json(list);
+    }
+    const list = await correctionRequestQueries.getAll();
+    res.json(list);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/attendance-corrections/:id', requireAuth, async (req, res) => {
+  try {
+    const row = await correctionRequestQueries.getById(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Request not found.' });
+    if (req.authUser.role === 'member' && row.member_id !== req.authUser.memberId) {
+      return res.status(403).json({ error: 'Not allowed.' });
+    }
+    res.json(row);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/attendance-corrections', requireAuth, async (req, res) => {
+  try {
+    const { member_id, date, event_type, event_name, current_status, requested_status, reason } = req.body;
+    const memberId = req.authUser.role === 'admin' ? member_id : req.authUser.memberId;
+    if (!memberId || !date || !event_type || current_status === undefined || !requested_status || !reason) {
+      return res.status(400).json({ error: 'member_id, date, event_type, current_status, requested_status, reason required.' });
+    }
+    if (req.authUser.role === 'member' && Number(member_id) !== req.authUser.memberId) {
+      return res.status(403).json({ error: 'You can only request for yourself.' });
+    }
+    const result = await correctionRequestQueries.create(
+      memberId, date, event_type, event_name || null, current_status, requested_status, reason.trim()
+    );
+    res.status(201).json({ id: result.lastID, message: 'Correction request submitted.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/attendance-corrections/:id', requireAuth, async (req, res) => {
+  try {
+    if (req.authUser.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can approve or reject requests.' });
+    }
+    const row = await correctionRequestQueries.getById(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Request not found.' });
+    const { request_status } = req.body;
+    if (request_status !== 'approved' && request_status !== 'rejected') {
+      return res.status(400).json({ error: 'request_status must be approved or rejected.' });
+    }
+    await correctionRequestQueries.updateStatus(req.params.id, request_status, req.authUser.id);
+    if (request_status === 'approved') {
+      const existing = await attendanceQueries.getByMemberDateType(row.member_id, row.date, row.event_type);
+      if (existing) {
+        await attendanceQueries.update(row.requested_status, '', existing.id);
+      } else {
+        await attendanceQueries.create(
+          row.member_id, row.event_type, row.event_name || '', row.date, row.requested_status, ''
+        );
+      }
+    }
+    res.json({ message: request_status === 'approved' ? 'Request approved and attendance updated.' : 'Request rejected.' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -509,13 +628,15 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     
     const currentBalance = totalIncome - totalExpenses;
     
-    // Get attendance from the most recent date only
+    // Recent attendance: latest Sunday only (e.g. Mar 8 Sunday) for all members
     const allAttendance = await attendanceQueries.getAll();
-    let recentAttendance = [];
-    if (allAttendance.length > 0) {
-      const mostRecentDate = allAttendance[0].date;
-      recentAttendance = allAttendance.filter(record => record.date === mostRecentDate);
-    }
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+    const daysToLastSunday = dayOfWeek === 0 ? 0 : dayOfWeek;
+    const lastSunday = new Date(today);
+    lastSunday.setDate(today.getDate() - daysToLastSunday);
+    const lastSundayStr = lastSunday.getFullYear() + '-' + String(lastSunday.getMonth() + 1).padStart(2, '0') + '-' + String(lastSunday.getDate()).padStart(2, '0');
+    let recentAttendance = allAttendance.filter(record => record.date === lastSundayStr && record.event_type === 'sunday');
+    recentAttendance.sort((a, b) => (a.member_name || '').localeCompare(b.member_name || ''));
     
     // Calculate quarterly attendance rankings
     const currentYear = now.getFullYear();

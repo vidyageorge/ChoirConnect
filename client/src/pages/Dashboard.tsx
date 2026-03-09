@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import { dashboardAPI } from '../api';
 import { DashboardData } from '../types';
 
+/** Running feed: date, piece, and lineup (role - name). */
+const RUNNING_FEED: Array<{ date: string; dateLabel: string; piece: string; lineup: string[] }> = [
+  { date: '2026-03-08', dateLabel: 'March 8th', piece: 'Psalm 95', lineup: ['Vidya George', 'Keyboardist - John Benedict'] },
+];
+
 function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,6 +134,70 @@ function Dashboard() {
             <p style={{ fontWeight: 600 }}>Current Choir Balance</p>
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: '1.5rem', overflow: 'hidden', padding: 0 }}>
+        <h3 className="card-title" style={{ marginBottom: 0, padding: '1rem 1.5rem' }}>Running feed</h3>
+        <div
+          className="dashboard-running-feed-strip"
+          style={{
+            overflow: 'hidden',
+            padding: '1rem 0',
+            background: '#2c1810',
+            color: '#e8dcc8',
+          }}
+        >
+          <div
+            className="dashboard-running-feed-ticker"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '3rem',
+              width: 'max-content',
+              animation: 'dashboard-ticker 25s linear infinite',
+              fontFamily: 'Georgia, "Times New Roman", serif',
+            }}
+          >
+            {[...RUNNING_FEED, ...RUNNING_FEED].map((entry, idx) => (
+              <span key={idx} style={{ whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: '1.25rem', fontWeight: 600, letterSpacing: '0.02em' }}>
+                  {entry.dateLabel} — {entry.piece}
+                </span>
+                <span style={{ margin: '0 0.5rem', fontSize: '1rem', opacity: 0.9 }}>·</span>
+                <span style={{ fontWeight: 400 }}>
+                  {entry.lineup.map((line, i) => {
+                    const dash = line.indexOf(' - ');
+                    const largeStyle = { fontSize: '1.125rem', fontWeight: 600 };
+                    if (dash >= 0) {
+                      const role = line.slice(0, dash + 3);
+                      const name = line.slice(dash + 3);
+                      return (
+                        <span key={i}>
+                          {i > 0 && <span style={{ margin: '0 0.35rem', fontSize: '0.9375rem' }}>·</span>}
+                          <span style={largeStyle}>{role}</span>
+                          <span style={largeStyle}>{name}</span>
+                        </span>
+                      );
+                    }
+                    return (
+                      <span key={i}>
+                        {i > 0 && <span style={{ margin: '0 0.35rem', fontSize: '0.9375rem' }}>·</span>}
+                        <span style={largeStyle}>{line}</span>
+                      </span>
+                    );
+                  })}
+                </span>
+                <span style={{ marginLeft: '1rem', fontSize: '0.75rem' }}>★</span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <style>{`
+          @keyframes dashboard-ticker {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0); }
+          }
+        `}</style>
       </div>
 
       <div className="card" style={{ marginBottom: '1.5rem' }}>
