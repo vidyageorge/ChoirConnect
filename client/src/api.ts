@@ -210,9 +210,21 @@ export const authAPI = {
 };
 
 // Dashboard API
+const FETCH_TIMEOUT_MS = 90000; // 90s for free-tier spin-up
+
 export const dashboardAPI = {
   getData: async () => {
-    const response = await fetch(`${API_URL}/dashboard`, FETCH_OPTIONS);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const response = await fetch(`${API_URL}/dashboard`, {
+      ...FETCH_OPTIONS,
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(err.error || `Dashboard request failed: ${response.status}`);
+    }
     return response.json();
   },
 };

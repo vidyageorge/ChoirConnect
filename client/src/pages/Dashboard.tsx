@@ -25,6 +25,7 @@ function Dashboard() {
       setData(result);
     } catch (error) {
       console.error('Failed to load dashboard:', error);
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -37,7 +38,8 @@ function Dashboard() {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/api/attendance/ranking?start=${startMonth}&end=${endMonth}`);
+      const base = import.meta.env.PROD ? '' : 'http://localhost:3000';
+      const response = await fetch(`${base}/api/attendance/ranking?start=${startMonth}&end=${endMonth}`, { credentials: 'include' });
       const result = await response.json();
       setCustomRanking(result);
     } catch (error) {
@@ -71,7 +73,17 @@ function Dashboard() {
   }
 
   if (!data) {
-    return <div className="empty-state">Failed to load dashboard data</div>;
+    return (
+      <div className="empty-state">
+        <p>Failed to load dashboard data.</p>
+        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+          On the free tier, the server may take up to a minute to start. Try refreshing in a moment.
+        </p>
+        <button type="button" onClick={() => { setLoading(true); loadDashboard(); }} style={{ marginTop: '1rem' }}>
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return (
